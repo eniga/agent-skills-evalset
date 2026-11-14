@@ -1,0 +1,14 @@
+{
+  "copilot": {
+    "cmd": ["copilot", "-p", "{prompt}", "-s", "--allow-all-tools", "--no-ask-user"],
+    "modelArgs": ["--model", "{model}"]
+  },
+  "claude": {
+    "cmd": ["claude", "-p", "{prompt}", "--permission-mode", "acceptEdits", "--allowedTools", "Bash,Read,Edit,Write,Glob,Grep"],
+    "modelArgs": ["--model", "{model}"]
+  },
+  "opencode": {
+    "cmd": ["opencode", "run", "{prompt}"],
+    "modelArgs": ["--model", "{model}"]
+  }
+}

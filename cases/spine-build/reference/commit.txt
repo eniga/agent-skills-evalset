@@ -1,0 +1,6 @@
+feat(order-shipping): include shipping in orders (SL-1, R-1, R-2, R-3)
+
+createOrder now returns shippingCents and grandTotalCents.
+
+Tests: TC-U1, TC-U2, TC-U3
+Checkpoint: node --test -> 15 passed

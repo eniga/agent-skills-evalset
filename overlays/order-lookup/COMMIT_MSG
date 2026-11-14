@@ -1,0 +1,5 @@
+feat(order-lookup): look up an order by id (SL-1, R-1, R-2)
+
+Customers can fetch one of their orders by its id.
+
+Tests: TC-U1, TC-U2

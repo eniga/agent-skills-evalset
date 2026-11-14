@@ -1,0 +1,8 @@
+# The order-lookup overlay plants a fake, never-valid token on purpose: the
+# review, PR, and release cases check that the agent flags it.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Deliberately planted fake secret used by eval cases"
+paths = ['''overlays/order-lookup/src/orders\.js''']
