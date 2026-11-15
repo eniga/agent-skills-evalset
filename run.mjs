@@ -5,7 +5,9 @@
 //   node run.mjs --agent copilot [--model <id>] [--case spine-build,spine-review]
 //                [--baseline] [--repeat 3] [--skills ../agent-skills/skills]
 //                [--timeout 900] [--keep]
+//   --case accepts a trailing *, e.g. --case 'route-*'
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { ROOT, createContext, createWorkspace, sh } from "./lib.mjs";
@@ -34,8 +36,10 @@ function parseArgs(argv) {
 
 async function loadCases(filter) {
   const wanted = filter ? filter.split(",") : null;
-  const names = readdirSync(join(ROOT, "cases")).filter((n) => !wanted || wanted.includes(n)).sort();
-  if (wanted) for (const w of wanted) if (!names.includes(w)) throw new Error(`no case named ${w}`);
+  const matches = (w, n) => (w.endsWith("*") ? n.startsWith(w.slice(0, -1)) : w === n);
+  const all = readdirSync(join(ROOT, "cases"));
+  const names = all.filter((n) => !wanted || wanted.some((w) => matches(w, n))).sort();
+  if (wanted) for (const w of wanted) if (!all.some((n) => matches(w, n))) throw new Error(`no case named ${w}`);
   return Promise.all(
     names.map(async (name) => {
       const dir = join(ROOT, "cases", name);
@@ -47,7 +51,7 @@ async function loadCases(filter) {
 
 // The two built-in agents exist to test the graders, not a model:
 // `reference` replays a known-good answer, `null` does nothing.
-function runBuiltin(agent, kase, ws) {
+function runBuiltin(agent, kase, ws, markers) {
   if (agent === "null") return { output: "", status: 0 };
   const ref = join(kase.dir, "reference");
   if (existsSync(join(ref, "files"))) cpSync(join(ref, "files"), ws, { recursive: true });
@@ -55,7 +59,11 @@ function runBuiltin(agent, kase, ws) {
     sh("git", ["add", "-A"], { cwd: ws });
     sh("git", ["commit", "-q", "--no-verify", "-F", join(ref, "commit.txt")], { cwd: ws });
   }
-  return { output: readFileSync(join(ref, "output.md"), "utf8"), status: 0 };
+  const output = readFileSync(join(ref, "output.md"), "utf8").replace(
+    /\{\{marker:([\w-]+)\}\}/g,
+    (_, name) => markers[name] ?? "",
+  );
+  return { output, status: 0 };
 }
 
 function runExternal(def, prompt, ws, opts) {
@@ -71,8 +79,10 @@ function runExternal(def, prompt, ws, opts) {
     input: def.stdin ? prompt : undefined,
     env: { ...process.env, ...def.env },
   });
+  const traced = def.trace === "claude-stream-json" ? parseClaudeStream(r.stdout) : null;
   return {
-    output: r.stdout,
+    output: traced ? traced.output : r.stdout,
+    toolCalls: traced?.toolCalls,
     status: r.status,
     stderr: r.stderr.slice(-4000),
     timedOut: r.timedOut,
@@ -81,17 +91,64 @@ function runExternal(def, prompt, ws, opts) {
   };
 }
 
+// Claude Code's stream-json output: one JSON event per line. The final
+// answer is the "result" event; the tool calls show which skills were loaded,
+// which a marker cannot show reliably (a careful model may decline to echo
+// an instruction it found inside a skill).
+function parseClaudeStream(stdout) {
+  const events = stdout
+    .split("\n")
+    .filter((line) => line.startsWith("{"))
+    .map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+  const result = events.findLast((e) => e.type === "result");
+  if (!result) return null;
+  const toolCalls = events
+    .filter((e) => e.type === "assistant")
+    .flatMap((e) => e.message?.content ?? [])
+    .filter((b) => b.type === "tool_use")
+    .map((b) => ({ name: b.name, input: b.input }));
+  return { output: result.result ?? "", toolCalls };
+}
+
+// Skills an agent loaded, from its tool calls: the Skill tool, or reading a
+// SKILL.md directly.
+function skillsFromTrace(toolCalls, installed) {
+  const used = new Set();
+  for (const { name, input } of toolCalls ?? []) {
+    if (name === "Skill" && installed.includes(input?.skill)) used.add(input.skill);
+    const text = JSON.stringify(input ?? {});
+    for (const skill of installed) if (text.includes(`skills/${skill}/SKILL.md`)) used.add(skill);
+  }
+  return used;
+}
+
 async function runCase(kase, agentName, agentDef, opts) {
   const skill = opts.baseline ? null : kase.skill;
-  const { ws, startSha } = createWorkspace({ overlay: kase.overlay, skill, skillsDir: opts.skills });
+  const { ws, startSha, markers } = createWorkspace({
+    fixture: kase.fixture,
+    overlay: kase.overlay,
+    skill,
+    skillsDir: opts.skills,
+    route: Boolean(kase.route),
+  });
   try {
+    // A routing case names no skill: the agent must pick one from the
+    // descriptions alone, as it would for a real request.
     const prompt =
-      (skill ? `Read .agents/skills/${skill}/SKILL.md and follow it exactly for this task.\n\n` : "") +
+      (skill && !kase.route ? `Read .agents/skills/${skill}/SKILL.md and follow it exactly for this task.\n\n` : "") +
       kase.task +
       "\n" +
       UNATTENDED;
-    const run = agentDef ? runExternal(agentDef, prompt, ws, opts) : runBuiltin(agentName, kase, ws);
-    const ctx = createContext({ ws, startSha, output: run.output });
+    const run = agentDef ? runExternal(agentDef, prompt, ws, opts) : runBuiltin(agentName, kase, ws, markers);
+    const traced = run.toolCalls ? skillsFromTrace(run.toolCalls, Object.keys(markers)) : undefined;
+    const ctx = createContext({ ws, startSha, output: run.output, markers, traced });
     const checks = [];
     for (const { name, test } of kase.checks) {
       let pass = false;
@@ -117,6 +174,8 @@ async function runCase(kase, agentName, agentDef, opts) {
     return {
       case: kase.name,
       skill: kase.skill,
+      ...(kase.route && { skillsUsed: [...ctx.skillsUsed], detectedBy: traced ? "trace" : "marker" }),
+      ...(run.toolCalls && { tools: run.toolCalls.map((t) => t.name) }),
       ...(infraError && { infraError: true }),
       pass: passed === checks.length,
       score: passed / checks.length,
@@ -190,6 +249,22 @@ async function selftest(opts) {
   process.exit(bad ? 1 : 0);
 }
 
+// A copy of a skill under test installed for the user (outside the
+// workspace) can be loaded instead of the workspace copy. It hides routing
+// markers, tests the installed version instead of this checkout, and gives
+// baseline runs the skill. The agent entry must isolate from it.
+function warnGlobalInstalls(cases) {
+  const names = new Set(cases.map((k) => k.skill).filter(Boolean));
+  const homes = [".claude/skills", ".agents/skills", ".copilot/skills"].map((h) => join(homedir(), h));
+  const found = homes.flatMap((h) => [...names].filter((n) => existsSync(join(h, n))).map((n) => join(h, n)));
+  if (found.length)
+    console.warn(
+      `warning: ${found.length} skill(s) under test are also installed for your user, e.g. ${found[0]}.\n` +
+        "  Unless the agent entry isolates from user skills (claude: --setting-sources project,local),\n" +
+        "  results may reflect the installed copy, not this checkout.\n",
+    );
+}
+
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (opts.selftest) return selftest(opts);
@@ -200,7 +275,9 @@ async function main() {
   const def = agents[opts.agent];
   if (!builtin && !def) throw new Error(`no agent "${opts.agent}" in agents.json`);
 
-  const cases = await loadCases(opts.case);
+  // Routing has no baseline: with no skills installed there is nothing to route to.
+  const cases = (await loadCases(opts.case)).filter((k) => !(opts.baseline && k.route));
+  warnGlobalInstalls(cases);
   const label = [opts.agent, opts.model, opts.baseline ? "baseline (no skill)" : "with skill"].filter(Boolean).join(" / ");
   const results = [];
   for (const kase of cases) {

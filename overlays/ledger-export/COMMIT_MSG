@@ -1,0 +1,5 @@
+feat(ledger-export): export transactions to CSV (SL-1, R-1, R-2, R-3)
+
+Finance can export the transactions in a date range for their spreadsheet.
+
+Tests: TC-U1

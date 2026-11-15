@@ -1,0 +1,6 @@
+feat(order-lookup): look up an order by id (SL-1, R-1, R-2, R-3)
+
+Customers can fetch one of their orders by its id. Anyone else gets
+FORBIDDEN, using the existing canViewOrder rule.
+
+Tests: TC-U1, TC-U2, TC-U3

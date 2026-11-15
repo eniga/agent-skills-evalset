@@ -1,0 +1,4 @@
+feat(confirmation-total): show subtotal plus shipping in confirmation (SL-1, R-1)
+
+Tests: TC-U1
+Checkpoint: node --test -> 13 pass

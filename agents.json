@@ -4,8 +4,9 @@
     "modelArgs": ["--model", "{model}"]
   },
   "claude": {
-    "cmd": ["claude", "-p", "{prompt}", "--permission-mode", "acceptEdits", "--allowedTools", "Bash,Read,Edit,Write,Glob,Grep"],
-    "modelArgs": ["--model", "{model}"]
+    "cmd": ["claude", "-p", "{prompt}", "--permission-mode", "acceptEdits", "--allowedTools", "Bash,Read,Edit,Write,Glob,Grep,Skill", "--setting-sources", "project,local", "--strict-mcp-config", "--output-format", "stream-json", "--verbose"],
+    "modelArgs": ["--model", "{model}"],
+    "trace": "claude-stream-json"
   },
   "opencode": {
     "cmd": ["opencode", "run", "{prompt}"],

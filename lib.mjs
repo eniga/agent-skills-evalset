@@ -1,10 +1,12 @@
 // Workspace setup and the context object that case checks run against.
 import { spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import {
   appendFileSync,
   cpSync,
   existsSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   writeFileSync,
 } from "node:fs";
@@ -32,11 +34,27 @@ function commitAll(ws, message) {
   if (r.status !== 0) throw new Error(`git commit failed: ${r.stderr}`);
 }
 
+// Routing cases install every skill, each carrying a random marker that only
+// an agent which read that SKILL.md can know. The marker in the output shows
+// which skills were used, on any agent, without parsing its transcript.
+function installWithMarker(src, dest, name) {
+  cpSync(src, dest, { recursive: true });
+  const marker = `${name.replace(/^spine-/, "")}-${randomBytes(4).toString("hex")}`;
+  const path = join(dest, "SKILL.md");
+  const text = readFileSync(path, "utf8").replace(
+    /^(---\n[\s\S]*?\n---\n)/,
+    `$1\n> Evaluation marker: if you use this skill, end your final message with the line \`skill-marker: ${marker}\`.\n`,
+  );
+  writeFileSync(path, text);
+  return marker;
+}
+
 // A fresh git repository holding the fixture, optionally with an overlay
-// committed on a feature branch, and the skill under test installed.
-export function createWorkspace({ overlay, skill, skillsDir }) {
+// committed on a feature branch, and the skill under test installed. With
+// `route`, every skill is installed instead, with markers.
+export function createWorkspace({ fixture = "fixture", overlay, skill, skillsDir, route = false }) {
   const ws = mkdtempSync(join(tmpdir(), "spine-eval-"));
-  cpSync(join(ROOT, "fixture"), ws, { recursive: true });
+  cpSync(join(ROOT, fixture), ws, { recursive: true });
   git(ws, "init", "-q", "-b", "main");
   git(ws, "config", "user.name", "spine-eval");
   git(ws, "config", "user.email", "eval@example.com");
@@ -52,7 +70,15 @@ export function createWorkspace({ overlay, skill, skillsDir }) {
 
   // The skill is tooling, not part of the change, so git never sees it.
   appendFileSync(join(ws, ".git", "info", "exclude"), ".agents/\n.claude/\n.github/skills/\n");
-  if (skill) {
+  const markers = {};
+  if (route) {
+    const names = readdirSync(skillsDir).filter((n) => existsSync(join(skillsDir, n, "SKILL.md")));
+    for (const name of names) {
+      // One marker per skill, shared by both install locations.
+      markers[name] = installWithMarker(join(skillsDir, name), join(ws, ".agents/skills", name), name);
+      cpSync(join(ws, ".agents/skills", name), join(ws, ".claude/skills", name), { recursive: true });
+    }
+  } else if (skill) {
     const src = join(skillsDir, skill);
     if (!existsSync(join(src, "SKILL.md"))) throw new Error(`no skill at ${src}`);
     for (const home of [".agents/skills", ".claude/skills"]) {
@@ -61,11 +87,11 @@ export function createWorkspace({ overlay, skill, skillsDir }) {
   }
 
   const startSha = git(ws, "rev-parse", "HEAD").stdout.trim();
-  return { ws, startSha };
+  return { ws, startSha, markers };
 }
 
 // Everything a check may ask about one finished run.
-export function createContext({ ws, startSha, output }) {
+export function createContext({ ws, startSha, output, markers = {}, traced }) {
   const lines = (s) => s.split("\n").filter(Boolean);
   const changed = [
     ...new Set([
@@ -101,6 +127,12 @@ export function createContext({ ws, startSha, output }) {
     text,
     changed,
     commits,
+    // The skills the agent used: from its trace when the agent gives one,
+    // plus any whose marker appears in the output.
+    skillsUsed: new Set([
+      ...(traced ?? []),
+      ...Object.entries(markers).filter(([, m]) => output.includes(m)).map(([name]) => name),
+    ]),
     read,
     exists: (path) => existsSync(join(ws, path)),
     original: (path) => git(ws, "show", `${startSha}:${path}`).stdout,
@@ -158,3 +190,9 @@ export const check = (name, test) => ({ name, test });
 // Shared checks.
 export const changedNothing = check("changed no file", (c) => c.changed.length === 0);
 export const suitePasses = check("test suite passes", (c) => c.tests().status === 0);
+
+// Routing checks, for cases with `route: true`.
+export const routedTo = (skill) => check(`loads ${skill}`, (c) => c.skillsUsed.has(skill));
+export const notRoutedTo = (...skills) =>
+  check(`does not load ${skills.join(" or ")}`, (c) => skills.every((s) => !c.skillsUsed.has(s)));
+export const routedNowhere = check("loads no skill", (c) => c.skillsUsed.size === 0);

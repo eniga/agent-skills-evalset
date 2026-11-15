@@ -1,0 +1,7 @@
+date,account,amount,memo
+2025-12-31,checking,-40.00,Card fee
+2026-01-02,checking,2000.00,Salary
+2026-01-02,savings,500.00,Transfer in
+2026-01-15,checking,-320.00,Groceries
+2026-01-31,checking,-50.00,Phone bill
+2026-02-01,checking,-1200.00,Rent
