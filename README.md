@@ -175,6 +175,22 @@ order-lookup ones.
 | `spine-diagnose-ledger` | Find an off-by-one in the date range (second fixture) | Same behavioral checks as `spine-diagnose` |
 | `spine-review-ledger` | Review the CSV export (second fixture) | Request changes; finds unquoted memos, formula injection, the out-of-scope parsing change, and the deleted test |
 
+### Review loop
+
+Two cases cover what happens after a review. Their overlays plant an
+authorization bug in `getOrder`: `order-lookup-findings` compares owners,
+and `order-lookup-round2` lets `admin` through instead of using
+`canViewOrder`, which grants `support`.
+
+| Case | Task | Graded on |
+|---|---|---|
+| `spine-build-findings` | Answer three review findings: one right, one contradicted by R-2, one nit | Hidden tests: support staff can view, an unknown id still returns `null`; reuses `canViewOrder`; adds a support test; contests finding 2 citing R-2; commits |
+| `spine-review-round2` | Second review round after a "fix" that used the wrong role | Request changes; reopens finding 1 (`admin` vs `support`); keeps the contested finding 2 settled; marks finding 3 fixed; labels the round |
+
+Neither case can check that the review ran in a fresh subagent: the
+`claude` entry in `agents.json` does not allow the `Agent` tool, so the
+skills fall back to a same-session review and say so.
+
 ### Routing
 
 A `route-*` case installs all 18 skills and names none: the prompt is a

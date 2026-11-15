@@ -1,0 +1,7 @@
+fix(order-lookup): let support staff view orders (SL-2, R-3)
+
+getOrder now uses the existing canViewOrder rule.
+
+Tests: TC-U3, support case
+Checkpoint: node --test -> all pass
+Review: #1

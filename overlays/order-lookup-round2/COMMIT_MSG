@@ -1,0 +1,5 @@
+fix(order-lookup): let staff view orders, add TC-U3 (SL-1, R-3)
+
+Answers review round 1: #1 fixed, #2 contested (R-2), #3 fixed.
+
+Tests: TC-U1, TC-U2, TC-U3
