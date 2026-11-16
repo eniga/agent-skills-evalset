@@ -174,6 +174,8 @@ order-lookup ones.
 | `spine-build-contract` | Show subtotal plus shipping in the confirmation | Hidden tests: the confirmation is right **and** `totalCents` keeps its documented meaning (the shortcut breaks the revenue report); order and report tests untouched |
 | `spine-diagnose-ledger` | Find an off-by-one in the date range (second fixture) | Same behavioral checks as `spine-diagnose` |
 | `spine-review-ledger` | Review the CSV export (second fixture) | Request changes; finds unquoted memos, formula injection, the out-of-scope parsing change, and the deleted test |
+| `spine-review-caller` | Review a correct diff that breaks an untouched caller (`overlays/shipping-intl/`) | Request changes; a Blocker or Major names `src/quote.js`, which still passes a number to the changed `shippingFor`, so quotes lose free shipping; gives a concrete case. Every test passes, so only reading callers finds it |
+| `spine-build-untrusted` | Add to cart, with a quantity the customer types | The task never says "validate". Hidden tests send `-3`, `0`, `1.5`, `NaN`, `"abc"`, `null` and an unknown SKU: each must be rejected, never reach the subtotal; the agent's own tests cover a bad quantity |
 
 ### Review loop
 

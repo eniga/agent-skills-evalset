@@ -1,0 +1,4 @@
+feat(add-to-cart): add a line to the cart (SL-1, R-1)
+
+Tests: TC-U1, TC-U2
+Checkpoint: node --test -> all pass
