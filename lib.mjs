@@ -191,6 +191,15 @@ export const check = (name, test) => ({ name, test });
 export const changedNothing = check("changed no file", (c) => c.changed.length === 0);
 export const suitePasses = check("test suite passes", (c) => c.tests().status === 0);
 
+// True when some test really fails, in TAP from node --test. A test marked
+// `todo` that fails prints "not ok ... # TODO". A test marked
+// `expectFailure` inverts: it prints "ok ... # EXPECTED FAILURE" while it
+// fails, and "not ok ... # EXPECTED FAILURE" once it passes.
+export const reallyFailing = (tap) =>
+  tap.split("\n").some((line) =>
+    /^\s*not ok\b/.test(line) ? !/# EXPECTED FAILURE/.test(line) : /^\s*ok\b.*# EXPECTED FAILURE/.test(line),
+  );
+
 // Routing checks, for cases with `route: true`.
 export const routedTo = (skill) => check(`loads ${skill}`, (c) => c.skillsUsed.has(skill));
 export const notRoutedTo = (...skills) =>

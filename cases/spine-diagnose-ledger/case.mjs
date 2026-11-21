@@ -1,8 +1,7 @@
-import { check } from "../../lib.mjs";
+import { check, reallyFailing as failing } from "../../lib.mjs";
 
 const BUG = "if (range.to && date >= range.to) return false;";
 const FIX = "if (range.to && date > range.to) return false;";
-const failing = (tap) => /^\s*not ok/m.test(tap);
 
 // Second fixture: a CommonJS command-line tool, so the skill is not only
 // ever tested on the order service.
@@ -24,7 +23,7 @@ export default {
       c.write("src/range.js", code.replace(BUG, FIX));
       try {
         const r = c.tests();
-        return r.status === 0 && !failing(r.stdout);
+        return !failing(r.stdout);
       } finally {
         c.write("src/range.js", code);
       }

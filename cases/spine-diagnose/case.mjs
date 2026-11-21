@@ -1,8 +1,7 @@
-import { check } from "../../lib.mjs";
+import { check, reallyFailing as failing } from "../../lib.mjs";
 
 const BUG = "bySku[item.sku] = item.qty;";
 const FIX = "bySku[item.sku] = (bySku[item.sku] ?? 0) + item.qty;";
-const failing = (tap) => /^\s*not ok/m.test(tap);
 
 export default {
   skill: "spine-diagnose",
@@ -21,7 +20,7 @@ export default {
       c.write("src/cart.js", code.replace(BUG, FIX));
       try {
         const r = c.tests();
-        return r.status === 0 && !failing(r.stdout);
+        return !failing(r.stdout);
       } finally {
         c.write("src/cart.js", code);
       }
