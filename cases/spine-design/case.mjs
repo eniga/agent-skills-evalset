@@ -17,7 +17,9 @@ export default {
       const cost = c.field("What we give up");
       return cost.length > 15 && !/^(none|nothing|minimal|n\/a)/i.test(cost);
     }),
-    check("status is Proposed, not self-accepted", (c) => /^proposed/i.test(c.field("Status"))),
+    check("status is Proposed, not self-accepted", (c) =>
+      // The Status field, or "Status is Proposed" when the design is returned in prose.
+      /^proposed/i.test(c.field("Status")) || (/\bstatus (is|stays) \**proposed/i.test(c.text) && !/^accepted/i.test(c.field("Status")))),
     check("uses the stated numbers", (c) => c.has(/1,?000/)),
     check("states what would reverse the decision and its cost", (c) =>
       c.has(/wrong if/i) && c.has(/cost to reverse/i),

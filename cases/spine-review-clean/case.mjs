@@ -11,6 +11,6 @@ export default {
     check("verdict is Approve (with or without notes)", (c) => /^approve/i.test(c.field("Verdict"))),
     check("raises no Blocker", (c) => blockerRows(c).length === 0),
     check("checked the authorization path", (c) => c.has(/canViewOrder/)),
-    check("checked the proof for R-3", (c) => c.has(/TC-U3/)),
+    check("checked the proof for R-3", (c) => c.has(/TC-U3|TC-U1\s*(to|through|-|–)\s*(TC-)?U3/)),
   ],
 };
