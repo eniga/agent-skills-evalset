@@ -17,7 +17,7 @@ export default {
       c.has(/reopen|still open|not fixed|fix(?:\s+\w+)? fail|incomplete/i) && c.has(/admin/i) && c.has(/support|canViewOrder/),
     ),
     check("keeps finding 2 settled", (c) =>
-      c.has(/settled/i) && !openRows(c).some((l) => /\bnull\b|ids? exist|enumerat|leak/i.test(l) && !/settled/i.test(l)),
+      c.has(/settled/i) && !openRows(c).some((l) => /\bnull\b|ids? exist|enumerat|(id|existence)[^|]{0,20}leak/i.test(l) && !/settled/i.test(l)),
     ),
     check("marks finding 3 fixed", (c) => c.has(/\|\s*\**3\**\s*\|[^\n]*fixed/i) || c.has(/TC-U3[^\n]*(fixed|added|present)/i)),
     check("labels the round", (c) => c.has(/round[^\n]{0,20}\b2\b/i)),

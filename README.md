@@ -175,6 +175,7 @@ order-lookup ones.
 | `spine-diagnose-ledger` | Find an off-by-one in the date range (second fixture) | Same behavioral checks as `spine-diagnose` |
 | `spine-review-ledger` | Review the CSV export (second fixture) | Request changes; finds unquoted memos, formula injection, the out-of-scope parsing change, and the deleted test |
 | `spine-review-caller` | Review a correct diff that breaks an untouched caller (`overlays/shipping-intl/`) | Request changes; a Blocker or Major names `src/quote.js`, which still passes a number to the changed `shippingFor`, so quotes lose free shipping; gives a concrete case. Every test passes, so only reading callers finds it |
+| `spine-review-copied-flaw` | Review a diff that copies the safe, unescaped HTML pattern of untouched code on `main` (`overlays/order-page/`) to a gift message the customer types (`overlays/gift-message/`) | Request changes; a Blocker or Major names the unescaped gift message in `src/page.js`, with a concrete malicious message. Every test passes, and the diff matches the existing code, so only a review that treats a copied security flaw as new finds it |
 | `spine-build-untrusted` | Add to cart, with a quantity the customer types | The task never says "validate". Hidden tests send `-3`, `0`, `1.5`, `NaN`, `"abc"`, `null` and an unknown SKU: each must be rejected, never reach the subtotal; the agent's own tests cover a bad quantity |
 
 ### Review loop
@@ -243,7 +244,7 @@ judge prose quality; read a sample of `output.md` files for that.
 ```
 cases/<name>/
   task.md              what the user asks
-  case.mjs             { skill, fixture?, overlay?, route?, checks: [check(name, (c) => boolean)] }
+  case.mjs             { skill, fixture?, base?, overlay?, route?, checks: [check(name, (c) => boolean)] }
   reference/output.md  a known-good final answer
   reference/files/     optional: files the reference writes
   reference/commit.txt optional: commits them with this message
@@ -252,7 +253,8 @@ cases/<name>/
 The context object `c` is defined in `lib.mjs`: `text`, `changed`, `commits`,
 `read`, `original`, `tests`, `field`, `section`, `ids`, `onlyChanged`, and
 for routing cases `skillsUsed`. `fixture` names a directory at the root
-(default `fixture`). With `route: true`, `skill` is the skill that should be
+(default `fixture`). `base` names an overlay committed on `main` before the
+branch, for code the change copies but does not touch. With `route: true`, `skill` is the skill that should be
 chosen (or `null`), and the checks `routedTo`, `notRoutedTo`, and
 `routedNowhere` from `lib.mjs` apply. A routing reference writes
 `{{marker:<skill>}}` where the marker goes.

@@ -1,0 +1,5 @@
+feat(gift-message): customers can add a gift message (SL-1, R-1, R-2)
+
+Follows the existing orderPageHtml pattern.
+
+Tests: TC-U1, TC-U2

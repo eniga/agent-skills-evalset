@@ -49,10 +49,11 @@ function installWithMarker(src, dest, name) {
   return marker;
 }
 
-// A fresh git repository holding the fixture, optionally with an overlay
-// committed on a feature branch, and the skill under test installed. With
+// A fresh git repository holding the fixture, optionally with a base overlay
+// committed on main and an overlay committed on a feature branch, and the
+// skill under test installed. With
 // `route`, every skill is installed instead, with markers.
-export function createWorkspace({ fixture = "fixture", overlay, skill, skillsDir, route = false }) {
+export function createWorkspace({ fixture = "fixture", base, overlay, skill, skillsDir, route = false }) {
   const ws = mkdtempSync(join(tmpdir(), "spine-eval-"));
   cpSync(join(ROOT, fixture), ws, { recursive: true });
   git(ws, "init", "-q", "-b", "main");
@@ -60,6 +61,13 @@ export function createWorkspace({ fixture = "fixture", overlay, skill, skillsDir
   git(ws, "config", "user.email", "eval@example.com");
   git(ws, "config", "commit.gpgsign", "false");
   commitAll(ws, "chore: fixture baseline");
+
+  // Code that already exists on main, untouched by the change under review.
+  if (base) {
+    const dir = join(ROOT, "overlays", base);
+    cpSync(dir, ws, { recursive: true, filter: (src) => !src.endsWith("COMMIT_MSG") });
+    commitAll(ws, readFileSync(join(dir, "COMMIT_MSG"), "utf8"));
+  }
 
   if (overlay) {
     const dir = join(ROOT, "overlays", overlay);

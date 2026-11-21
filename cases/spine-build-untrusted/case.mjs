@@ -25,7 +25,11 @@ export default {
       }
     }),
     check("tests a bad quantity itself", (c) =>
-      c.changed.some((p) => p.startsWith("test/") && /addLine/.test(c.read(p)) && /-\d|\b0\b|NaN|1\.5|invalid|reject|throw/i.test(c.read(p))),
+      c.changed.some((p) => {
+        // Drop SKUs like "A-100" first: their "-1" is not a negative quantity.
+        const text = c.read(p).replace(/\b[A-Z]+-\d+\b/g, "");
+        return p.startsWith("test/") && /addLine/.test(text) && /-\d|\b0\b|NaN|1\.5|invalid|reject|throw/i.test(text);
+      }),
     ),
     check("only src/cart.js changed under src/", (c) => {
       const src = c.changed.filter((p) => p.startsWith("src/"));

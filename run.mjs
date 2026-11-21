@@ -133,6 +133,7 @@ async function runCase(kase, agentName, agentDef, opts) {
   const skill = opts.baseline ? null : kase.skill;
   const { ws, startSha, markers } = createWorkspace({
     fixture: kase.fixture,
+    base: kase.base,
     overlay: kase.overlay,
     skill,
     skillsDir: opts.skills,
